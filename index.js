@@ -40,10 +40,21 @@ async function run() {
 
         const taskCollection = client.db('task_management').collection('users_data')
 
+        // Get all tasks
         app.get('/users_data', async (req, res) => {
             const cursor = taskCollection.find({})
             const userData = await cursor.toArray()
             res.send(userData)
+        })
+
+        // Get task by id
+        app.get('/users_data/:id', async (req, res) => {
+            const taskId = req.params.id;
+            const userId = req?.query?.userId
+            const filter = { _id: new ObjectId(userId) };
+            const tasks = await taskCollection.findOne(filter)
+            const result = tasks?.tasks?.find((task) => task.id === taskId);
+            res.send(result);
         })
 
         app.post('/users_data', async (req, res) => {
@@ -57,8 +68,6 @@ async function run() {
                     { returnOriginal: false }
                 );
                 res.send(result);
-                console.log(data);
-                console.log("update", result);
             } else {
                 // User not found, insert new data
                 const result = await taskCollection.insertOne({
@@ -69,13 +78,30 @@ async function run() {
                     ]
                 });
                 res.send(result);
-                console.log("insert", result);
             }
 
         })
 
+        app.patch('/users_data/:id', async (req, res) => {
+            const taskId = req.params.id;
+            const userId = req?.query?.userId
+            const updatedTask = req.body
+            console.log(taskId, userId, updatedTask);
+            const filter = { _id: new ObjectId(userId) };
+            const tasks = await taskCollection.findOne(filter)
+            const oldTask = tasks?.tasks?.find((task) => task.id === taskId);
+            const task_name = updatedTask?.task_name || oldTask?.task_name;
+            const task_description = updatedTask?.task_description || oldTask?.task_description;
+            const result = await taskCollection.findOneAndUpdate(
+                { _id: new ObjectId(userId), 'tasks.id': taskId },
+                { $set: { 'tasks.$.task_name': `${task_name}`, 'tasks.$.task_description': `${task_description}` } },
+                { returnOriginal: true }
+            );
+            res.send(result);
+            console.log("update", result);
+        })
 
-
+        // Delete Task
         app.delete('/users_data/:id', async (req, res) => {
             const taskId = req.params.id;
             const userId = req?.query?.userId
