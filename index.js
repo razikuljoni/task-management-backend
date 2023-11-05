@@ -3,6 +3,8 @@ const express = require('express')
 const app = express()
 require('dotenv').config()
 const cors = require('cors')
+const { v4: uuidv4 } = require('uuid');
+const { ObjectId } = require('mongodb');
 
 const port = process.env.PORT || 8000
 
@@ -51,24 +53,38 @@ async function run() {
                 // Existing user found, update the tasks array
                 const result = await taskCollection.findOneAndUpdate(
                     { user_email: data?.user_email },
-                    { $push: { tasks: { task_name: data.task_name, task_description: data.task_description } } },
+                    { $push: { tasks: { id: uuidv4(), task_name: data.task_name, task_description: data.task_description, status: "pending" } } },
                     { returnOriginal: false }
                 );
                 res.send(result);
+                console.log(data);
                 console.log("update", result);
             } else {
                 // User not found, insert new data
                 const result = await taskCollection.insertOne({
-                    user_email: data?.email,
+                    user_email: data?.user_email,
                     user_name: data.user_name,
                     tasks: [
-                        { task_name: data.task_name, task_description: data.task_description }
+                        { id: uuidv4(), task_name: data.task_name, task_description: data.task_description, status: "pending" }
                     ]
                 });
                 res.send(result);
                 console.log("insert", result);
             }
 
+        })
+
+
+
+        app.delete('/users_data/:id', async (req, res) => {
+            const taskId = req.params.id;
+            const userId = req?.query?.userId
+            const result = await taskCollection.findOneAndUpdate(
+                { _id: new ObjectId(userId) },
+                { $pull: { tasks: { id: taskId } } },
+                { returnOriginal: false }
+            );
+            res.send(result);
         })
     } catch (err) {
         console.log(err.message);
